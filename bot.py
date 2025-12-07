@@ -49,28 +49,38 @@ News:
         return f"{title} 🚀"
 
 def post_to_x(tweet):
+    from playwright.sync_api import sync_playwright
+    import time
+    import os
+
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto("https://x.com/i/flow/login", timeout=60000)
+        browser = p.chromium.launch(headless=False)  # 👈 IMPORTANT
+        context = browser.new_context()
+        page = context.new_page()
 
-        # ✅ Email step
-        page.wait_for_selector("input", timeout=60000)
-        page.fill("input", os.getenv("X_EMAIL"))
+        page.goto("https://x.com/login", timeout=60000)
+        time.sleep(5)
+
+        page.fill("input[autocomplete='username']", os.getenv("X_EMAIL"))
         page.keyboard.press("Enter")
-        time.sleep(3)
+        time.sleep(5)
 
-        # ✅ Password step
-        page.wait_for_selector("input[type='password']", timeout=60000)
         page.fill("input[type='password']", os.getenv("X_PASSWORD"))
         page.keyboard.press("Enter")
+        time.sleep(10)
+
+        # Go directly to post box
+        page.goto("https://x.com/home", timeout=60000)
         time.sleep(8)
 
-        # ✅ Tweet box + post
-        page.wait_for_selector("div[role='textbox']", timeout=60000)
-        page.fill("div[role='textbox']", tweet)
+        page.click("div[aria-label='Post']")
         time.sleep(2)
+
+        page.keyboard.type(tweet, delay=20)
+        time.sleep(2)
+
         page.click("div[data-testid='tweetButtonInline']")
-        time.sleep(4)
+        time.sleep(5)
 
         browser.close()
+
