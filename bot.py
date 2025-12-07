@@ -28,13 +28,22 @@ News:
 """
     res = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_KEY}"},
+        headers={"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"},
         json={
-            "model": "llama3-70b-8192",
+            "model": "llama3-8b-8192",
             "messages": [{"role": "user", "content": prompt}]
         }
     )
-    return res.json()["choices"][0]["message"]["content"]
+
+    data = res.json()
+
+    # ✅ SAFE FAILOVER IF GROQ RETURNS ERROR
+    if "choices" not in data:
+        print("GROQ ERROR:", data)
+        return f"{title} 🚀"
+
+    return data["choices"][0]["message"]["content"]
+
 
 def post_to_x(tweet):
     with sync_playwright() as p:
