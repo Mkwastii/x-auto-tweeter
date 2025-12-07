@@ -26,41 +26,51 @@ News:
 {title}
 {summary}
 """
+
     res = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
-        headers={"Authorization": f"Bearer {GROQ_KEY}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {GROQ_KEY}",
+            "Content-Type": "application/json"
+        },
         json={
-            "model": "llama3-8b-8192",
-            "messages": [{"role": "user", "content": prompt}]
+            "model": "llama-3.1-8b-instant",  # ✅ ACTIVE MODEL
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.7
         }
     )
 
     data = res.json()
 
-    # ✅ SAFE FAILOVER IF GROQ RETURNS ERROR
-    if "choices" not in data:
+    if "choices" in data:
+        return data["choices"][0]["message"]["content"]
+    else:
         print("GROQ ERROR:", data)
         return f"{title} 🚀"
-
-    return data["choices"][0]["message"]["content"]
-
 
 def post_to_x(tweet):
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
-        page.goto("https://x.com/login")
-        page.fill("input[name='text']", os.getenv("X_EMAIL"))
-        page.keyboard.press("Enter")
-        time.sleep(2)
-        page.fill("input[name='password']", os.getenv("X_PASSWORD"))
-        page.keyboard.press("Enter")
-        time.sleep(5)
-        page.fill("div[role='textbox']", tweet)
-        page.click("div[data-testid='tweetButton']")
-        time.sleep(3)
-        browser.close()
+        page.goto("https://x.com/i/flow/login", timeout=60000)
 
-title, summary, link, cat = get_news()
-tweet = rewrite(title, summary) + f" {link}"
-post_to_x(tweet)
+        # ✅ Email step
+        page.wait_for_selector("input", timeout=60000)
+        page.fill("input", os.getenv("X_EMAIL"))
+        page.keyboard.press("Enter")
+        time.sleep(3)
+
+        # ✅ Password step
+        page.wait_for_selector("input[type='password']", timeout=60000)
+        page.fill("input[type='password']", os.getenv("X_PASSWORD"))
+        page.keyboard.press("Enter")
+        time.sleep(8)
+
+        # ✅ Tweet box + post
+        page.wait_for_selector("div[role='textbox']", timeout=60000)
+        page.fill("div[role='textbox']", tweet)
+        time.sleep(2)
+        page.click("div[data-testid='tweetButtonInline']")
+        time.sleep(4)
+
+        browser.close()
